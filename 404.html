@@ -1,0 +1,427 @@
+<!doctype html>
+<!--
+README — How to publish to GitHub Pages (root)
+1) Create a new repo (or open an existing one), add this file as: index.html at the repo root, commit & push.
+2) In your repo: Settings → Pages → "Deploy from a branch" → Branch: main (or master) → Folder: / (root).
+3) Wait for the green check. Your site will be served at the URL shown by GitHub Pages.
+Tip: We include a 404.html identical to index.html to prevent "File not found" on nested URLs.
+-->
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Compound Interest Pro – The Ultimate Target</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Libraries (UMD) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.25.7/babel.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.13.2/umd/Recharts.min.js"></script>
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#f8fafc; --text:#0f172a; --muted:#64748b; --card:#ffffff; --line:#e2e8f0;
+      --brand:#0ea5e9; --ok:#059669; --warn:#dc2626; --gold:#EAB308;
+      --nominal:#0284C7; --real:#334155;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root{ --bg:#0b1220; --text:#e2e8f0; --muted:#94a3b8; --card:#121a2a; --line:#253246; }
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Helvetica, Arial;
+      background:var(--bg); color:var(--text);
+    }
+    .wrap{max-width:1200px; margin:0 auto; padding:20px;}
+    header{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px}
+    h1{margin:0; font-size:22px}
+    .muted{color:var(--muted)}
+    .grid{display:grid; grid-template-columns:1fr; gap:16px}
+    @media (min-width: 1024px){ .grid{grid-template-columns: 400px minmax(0,1fr);} }
+    .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px}
+    .row{display:grid; grid-template-columns: 1fr; gap:10px; margin-bottom:10px}
+    .row.two{grid-template-columns: 1fr 1fr}
+    label{font-size:12px; color:var(--muted)}
+    input[type="text"],input[type="number"]{
+      width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--line);
+      background:var(--card); color:var(--text); outline:none;
+    }
+    input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0; }
+    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:#ffffff; color:#111827; font-weight:600; cursor:pointer}
+    .btn:hover{filter:brightness(0.98)} .btn:active{transform:scale(0.98)}
+    .btn-primary{background:#10b981; color:#ffffff; border-color:#0ea271}
+    .btn-sky{background:#0284c7; color:#ffffff; border-color:#0369a1}
+    .legend{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+    .chip{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; background:#fff; color:#0f172a}
+    .dot{width:10px; height:10px; border-radius:50%}
+    .kpis{display:grid; grid-template-columns:1fr; gap:10px}
+    @media (min-width:768px){ .kpis{grid-template-columns: repeat(3, 1fr);} }
+    .kpi{border:1px solid var(--line); border-radius:12px; padding:12px}
+    .kpi .lab{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em}
+    .kpi .val{font-size:18px; font-weight:600; margin-top:4px}
+    .chart{width:100%; height:420px}
+    @media (min-width:1024px){ .chart{height:520px} }
+    footer{margin-top:18px; text-align:center; font-size:12px; color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="env,react">
+    const {
+      LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend
+    } = Recharts;
+    const { jsPDF } = window.jspdf;
+
+    // ---------- helpers ----------
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+    const nz = (n, fallback=0) => (Number.isFinite(n) ? n : fallback);
+
+    const fmtAUD = (n) =>
+      "A$" + nz(n,0).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+
+    const fmtAxisCurrency = (n) => "A$" + nz(n,0).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+
+    const parseMoneyText = (s) => {
+      const t = String(s || "").replace(/[^0-9]/g, "");
+      return t ? Number(t) : 0;
+    };
+
+    const parsePercentText = (s) => {
+      const t = String(s || "").replace(/[^0-9.]/g, "");
+      const v = t === "" ? NaN : Number(t);
+      return Number.isFinite(v) ? v : NaN;
+    };
+
+    const monthlyFromAnnualWithFees = (annualPct, feePct) => {
+      const gross = 1 + annualPct;
+      const feeFactor = 1 - clamp(feePct, 0, 0.1);
+      return Math.pow(gross * feeFactor, 1/12) - 1;
+    };
+
+    const monthlyInflFromAnnual = (inflPct) => Math.pow(1 + inflPct, 1/12) - 1;
+
+    const annuityRealMonthly = (balanceAtRet, rRealMonthly, months) => {
+      if (months <= 0) return 0;
+      if (Math.abs(rRealMonthly) < 1e-9) return balanceAtRet / months;
+      return balanceAtRet * (rRealMonthly) / (1 - Math.pow(1 + rRealMonthly, -months));
+    };
+
+    function MoneyInput({label, value, onChange, id}) {
+      const [text, setText] = React.useState(value.toLocaleString("en-AU"));
+      React.useEffect(() => { setText(value.toLocaleString("en-AU")); }, [value]);
+      const commit = () => {
+        const v = parseMoneyText(text);
+        onChange(v);
+        setText(v.toLocaleString("en-AU"));
+      };
+      return (
+        <div className="row">
+          <label htmlFor={id}>{label}</label>
+          <input
+            id={id} type="text" inputMode="numeric" value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === "Enter") { commit(); e.currentTarget.blur(); } }}
+            aria-label={label}
+          />
+        </div>
+      );
+    }
+
+    function PercentInput({label, value, onChange, id, min=0, max=30}) {
+      const [text, setText] = React.useState(String(value));
+      React.useEffect(() => { setText(String(value)); }, [value]);
+      const commit = () => {
+        const v = parsePercentText(text);
+        const clamped = Number.isFinite(v) ? clamp(v, min, max) : value;
+        onChange(clamped);
+        setText(String(clamped));
+      };
+      return (
+        <div className="row">
+          <label htmlFor={id}>{label}</label>
+          <input
+            id={id} type="text" inputMode="decimal" value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === "Enter") { commit(); e.currentTarget.blur(); } }}
+            aria-label={label}
+          />
+        </div>
+      );
+    }
+
+    function NumberInput({label, value, onChange, id, min, max}) {
+      const [text, setText] = React.useState(String(value));
+      React.useEffect(() => { setText(String(value)); }, [value]);
+      const commit = () => {
+        const v = Number(text);
+        const clamped = Number.isFinite(v) ? clamp(v, min, max) : value;
+        onChange(clamped);
+        setText(String(clamped));
+      };
+      return (
+        <div className="row">
+          <label htmlFor={id}>{label}</label>
+          <input
+            id={id} type="number" min={min} max={max} value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === "Enter") { commit(); e.currentTarget.blur(); } }}
+            aria-label={label}
+          />
+        </div>
+      );
+    }
+
+    function project({
+      currentAge, retireAge, lifeExpectancy,
+      initialBalance, monthlyContribution,
+      preRetAnnual, postRetAnnual, inflationAnnual, feesAnnual
+    }) {
+      const r_pre = preRetAnnual / 100;
+      const r_post = postRetAnnual / 100;
+      const infl = inflationAnnual / 100;
+      const fees = feesAnnual / 100;
+
+      const mPre = monthlyFromAnnualWithFees(r_pre, fees);
+      const mPost = monthlyFromAnnualWithFees(r_post, fees);
+      const mInfl = monthlyInflFromAnnual(infl);
+
+      const monthsTotal = Math.max(0, Math.round((lifeExpectancy - currentAge) * 12));
+      const monthsToRet = Math.max(0, Math.round((retireAge - currentAge) * 12));
+      const monthsPost = Math.max(0, monthsTotal - monthsToRet);
+
+      let bal = Math.max(0, initialBalance);
+      const points = [];
+      let balAtRet = bal;
+
+      for (let m = 1; m <= monthsToRet; m++) {
+        const growth = bal * mPre;
+        bal = bal + growth + monthlyContribution;
+        if (m % 12 === 0) {
+          const age = Math.floor(currentAge + m/12);
+          const real = bal / Math.pow(1 + mInfl, m);
+          points.push({ age, nominal: bal, real });
+        }
+      }
+      balAtRet = bal;
+
+      const rRealMonthly = ((1 + mPost) / (1 + mInfl)) - 1;
+      const aRealMonth = annuityRealMonthly(balAtRet, rRealMonthly, monthsPost);
+      const sustainableAnnualToday = aRealMonth * 12;
+
+      for (let k = 1; k <= monthsPost; k++) {
+        const growth = bal * mPost;
+        const withdrawNominal = aRealMonth * Math.pow(1 + mInfl, k);
+        bal = bal + growth - withdrawNominal;
+        if (bal < 0) bal = 0;
+        const m = monthsToRet + k;
+        if (m % 12 === 0) {
+          const age = Math.floor(currentAge + m/12);
+          const real = bal / Math.pow(1 + mInfl, m);
+          points.push({ age, nominal: bal, real });
+        }
+      }
+
+      if (points.length === 0) {
+        points.push({ age: Math.floor(currentAge), nominal: bal, real: bal });
+      } else {
+        const firstAge = Math.floor(currentAge);
+        if (points[0].age > firstAge) {
+          points.unshift({ age: firstAge, nominal: Math.max(0, initialBalance), real: Math.max(0, initialBalance) });
+        }
+      }
+
+      return {
+        points,
+        retirement: {
+          age: retireAge,
+          balanceNominal: balAtRet,
+          balanceReal: balAtRet / Math.pow(1 + mInfl, monthsToRet),
+          sustainableAnnualToday,
+        }
+      };
+    }
+
+    function App(){
+      const [initialBalance, setInitialBalance] = React.useState(150000);
+      const [monthlyContribution, setMonthlyContribution] = React.useState(3000);
+      const [preRetAnnual, setPreRetAnnual] = React.useState(8.0);
+      const [postRetAnnual, setPostRetAnnual] = React.useState(5.0);
+      const [inflationAnnual, setInflationAnnual] = React.useState(3.0);
+      const [feesAnnual, setFeesAnnual] = React.useState(1.0);
+      const [currentAge, setCurrentAge] = React.useState(40);
+      const [retireAge, setRetireAge] = React.useState(60);
+      const [lifeExpectancy, setLifeExpectancy] = React.useState(90);
+
+      const proj = React.useMemo(() => project({
+        currentAge, retireAge, lifeExpectancy,
+        initialBalance, monthlyContribution,
+        preRetAnnual, postRetAnnual, inflationAnnual, feesAnnual
+      }), [currentAge, retireAge, lifeExpectancy, initialBalance, monthlyContribution, preRetAnnual, postRetAnnual, inflationAnnual, feesAnnual]);
+
+      const reportRef = React.useRef(null);
+
+      const downloadPNG = async () => {
+        const node = reportRef.current;
+        if (!node) return;
+        const canvas = await html2canvas(node, { scale: 2, backgroundColor: getComputedStyle(document.body).backgroundColor });
+        const dataUrl = canvas.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = "compound-interest-pro.png";
+        a.click();
+      };
+
+      const downloadPDF = async () => {
+        const node = reportRef.current;
+        if (!node) return;
+        const wasOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        await new Promise(r => setTimeout(r, 50));
+        const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#ffffff" });
+        const img = canvas.toDataURL("image/png");
+
+        const pdf = new jsPDF("p","mm","a4");
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 8;
+        const maxW = pageWidth - margin*2;
+        const maxH = pageHeight - margin*2;
+
+        const pxPerMM = 96/25.4;
+        const imgWmm = canvas.width / pxPerMM;
+        const imgHmm = canvas.height / pxPerMM;
+        const scale = Math.min(maxW / imgWmm, maxH / imgHmm, 1);
+        const renderW = imgWmm * scale;
+        const renderH = imgHmm * scale;
+
+        pdf.addImage(img, "PNG", (pageWidth - renderW)/2, (pageHeight - renderH)/2, renderW, renderH, undefined, "FAST");
+        pdf.save("compound-interest-pro.pdf");
+        document.body.style.overflow = wasOverflow;
+      };
+
+      const axisColor = getComputedStyle(document.documentElement).getPropertyValue('--muted') || '#64748b';
+
+      return (
+        <div className="wrap" ref={reportRef}>
+          <header>
+            <div>
+              <h1>Compound Interest Pro – The Ultimate Target</h1>
+              <div className="muted">Nominal & Real balances with sustainable retirement spending.</div>
+            </div>
+            <div className="legend">
+              <button className="btn btn-sky" onClick={downloadPNG}>Download PNG Snapshot</button>
+              <button className="btn btn-primary" onClick={downloadPDF}>Download PDF</button>
+            </div>
+          </header>
+
+          <div className="grid">
+            <div className="card">
+              <div className="row two">
+                <MoneyInput label="Starting Lump Sum (A$)" id="start" value={initialBalance} onChange={(v)=>setInitialBalance(clamp(v,0,50_000_000))} />
+                <MoneyInput label="Monthly Contribution (A$/mo)" id="contrib" value={monthlyContribution} onChange={(v)=>setMonthlyContribution(clamp(v,0,100_000))} />
+              </div>
+
+              <div className="row two">
+                <PercentInput label="Expected Return (% p.a., pre-retirement)" id="pre" value={preRetAnnual} onChange={(v)=>setPreRetAnnual(clamp(v,0,30))} />
+                <PercentInput label="Retirement Return (% p.a., post-retirement)" id="post" value={postRetAnnual} onChange={(v)=>setPostRetAnnual(clamp(v,0,30))} />
+              </div>
+
+              <div className="row two">
+                <PercentInput label="Inflation (% p.a.)" id="infl" value={inflationAnnual} onChange={(v)=>setInflationAnnual(clamp(v,0,15))} />
+                <PercentInput label="Fees (% p.a.)" id="fees" value={feesAnnual} onChange={(v)=>setFeesAnnual(clamp(v,0,5))} />
+              </div>
+
+              <div className="row two">
+                <NumberInput label="Current Age" id="age" value={currentAge} onChange={(v)=>setCurrentAge(clamp(v,18, Math.min(109, retireAge-1)))} min={18} max={109} />
+                <NumberInput label="Retirement Age" id="retAge" value={retireAge} onChange={(v)=>setRetireAge(clamp(v, currentAge+1, Math.min(109, lifeExpectancy-1)))} min={19} max={109} />
+              </div>
+
+              <div className="row">
+                <NumberInput label="Life Expectancy" id="life" value={lifeExpectancy} onChange={(v)=>setLifeExpectancy(clamp(v, retireAge+1, 110))} min={retireAge+1} max={110} />
+              </div>
+
+              <div className="kpis" aria-live="polite">
+                <div className="kpi">
+                  <div className="lab">Balance at Retirement (Nominal)</div>
+                  <div className="val">{fmtAUD(proj.retirement.balanceNominal)}</div>
+                </div>
+                <div className="kpi">
+                  <div className="lab">Balance at Retirement (Real)</div>
+                  <div className="val">{fmtAUD(proj.retirement.balanceReal)}</div>
+                </div>
+                <div className="kpi">
+                  <div className="lab">Sustainable Annual Spend (today $)</div>
+                  <div className="val" style={{color:"var(--ok)"}}>{fmtAUD(proj.retirement.sustainableAnnualToday)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="legend" style={{marginBottom:8}}>
+                <span className="chip"><span className="dot" style={{background:"#0284C7"}}></span>Nominal</span>
+                <span className="chip"><span className="dot" style={{background:"#334155"}}></span>Real</span>
+              </div>
+              <div className="chart">
+                <ResponsiveContainer>
+                  <LineChart data={proj.points} margin={{ top: 48, right: 24, bottom: 24, left: 8 }}>
+                    <CartesianGrid stroke="#e2e8f0" />
+                    <XAxis
+                      dataKey="age"
+                      tick={{ fill: axisColor.trim() || "#64748b", fontSize: 12 }}
+                      minTickGap={8}
+                    />
+                    <YAxis
+                      tick={{ fill: axisColor.trim() || "#64748b", fontSize: 12 }}
+                      tickFormatter={fmtAxisCurrency}
+                      width={90}
+                    />
+                    <Tooltip
+                      formatter={(v, name) => [fmtAUD(v), name]}
+                      labelFormatter={(l) => "Age " + l}
+                      contentStyle={{ background:"#ffffff", border:"1px solid #e2e8f0", color:"#0f172a" }}
+                    />
+                    <Legend verticalAlign="top" height={24} />
+                    <Line type="monotone" dataKey="nominal" name="Balance (Nominal)" stroke="#0284C7" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="real" name="Balance (Real)" stroke="#334155" strokeWidth={3} dot={false} strokeDasharray="6 6" />
+                    <ReferenceLine
+                      x={retireAge}
+                      stroke="#EAB308"
+                      strokeWidth={3}
+                      strokeDasharray="6 3"
+                      ifOverflow="extendDomain"
+                      label={{ value: `Retirement ${retireAge}`, position: "insideTop", dy: 14, fill: "#EAB308", fontWeight: 700 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="muted" style={{marginTop:8}}>Pre-retirement: contributions & growth net of fees. Post-retirement: inflation-indexed spending at a sustainable level, with net returns and fees applied.</p>
+            </div>
+          </div>
+
+          <footer>© <span id="yr"></span> Compound Interest Pro</footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+    document.getElementById("yr").textContent = String(new Date().getFullYear());
+
+    try {
+      const t = (a)=>a.toLocaleString("en-AU");
+      console.assert(t(1234567) === "1,234,567", "Locale thousands check failed");
+      const demo = project({
+        currentAge: 40, retireAge: 60, lifeExpectancy: 90,
+        initialBalance: 200000, monthlyContribution: 3000,
+        preRetAnnual: 8, postRetAnnual: 5, inflationAnnual: 3, feesAnnual: 1
+      });
+      console.assert(Array.isArray(demo.points) && demo.points.length > 0, "Projection returned empty data");
+      console.assert(demo.retirement.sustainableAnnualToday > 0, "Sustainable spend should be positive");
+    } catch(e){ /* keep UI resilient */ }
+  </script>
+</body>
+</html>
