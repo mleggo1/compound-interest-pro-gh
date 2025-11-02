@@ -357,7 +357,27 @@
   <div id="root"></div>
   <script type="text/babel" data-presets="env,react">
     const { useState, useMemo, useEffect, useCallback, useRef } = React;
-    const { create } = zustand;
+
+    const resolveZustandCreate = () => {
+      const globalRef = window.zustand;
+      if (typeof globalRef === "function") return globalRef;
+      if (globalRef && typeof globalRef.create === "function") return globalRef.create;
+      console.error("Zustand UMD bundle failed to load or expose create().");
+      return null;
+    };
+
+    const create = resolveZustandCreate();
+
+    if (!create) {
+      ReactDOM.createRoot(document.getElementById("root")).render(
+        <div style={{ padding: 32, fontFamily: "sans-serif" }}>
+          <h1>Wealth Dashboard Preview</h1>
+          <p>We couldn't initialise the data store. Please check your internet connection and refresh.</p>
+        </div>
+      );
+      throw new Error("Zustand create() unavailable");
+    }
+
     const {
       Area, AreaChart, CartesianGrid, Legend, Pie, PieChart,
       ResponsiveContainer, Tooltip, XAxis, YAxis, Cell
@@ -684,7 +704,7 @@
     /*********************************
      * Hooks & Input Components
      *********************************/
-    const useBufferedInput = (value, { format, parse, onCommit }) => {
+    const useBufferedInput = (value, { format, parse, onCommit, commitOnEnter = true }) => {
       const formatFn = format || ((v) => (v === null || v === undefined ? "" : String(v)));
       const parseFn = parse || ((text) => text);
       const onCommitRef = useRef(onCommit);
@@ -717,7 +737,7 @@
       }, [text, parseFn]);
 
       const handleKeyDown = useCallback((event) => {
-        if (event.key === "Enter") {
+        if (commitOnEnter && event.key === "Enter") {
           event.preventDefault();
           commit();
           event.currentTarget.blur();
@@ -810,7 +830,7 @@
     const TextArea = ({ id, label, value, onChange, placeholder }) => {
       const format = useCallback((v) => (v === null || v === undefined ? "" : String(v)), []);
       const parse = useCallback((text) => text.trim(), []);
-      const { text, setText, commit, handleKeyDown } = useBufferedInput(value, { format, parse, onCommit: (next) => onChange(next || "") });
+      const { text, setText, commit } = useBufferedInput(value, { format, parse, onCommit: (next) => onChange(next || ""), commitOnEnter: false });
       return (
         <div className="field">
           <label htmlFor={id}>{label}</label>
@@ -819,7 +839,6 @@
             value={text}
             onChange={(event) => setText(event.target.value)}
             onBlur={commit}
-            onKeyDown={handleKeyDown}
             placeholder={placeholder}
           />
         </div>
@@ -903,7 +922,7 @@
           <TextArea id={`holding-${holding.id}-notes`} label="Notes" value={holding.notes || ""} onChange={(value) => handlePatch({ notes: value || null })} placeholder="Anything notable about this holding" />
           <div className="metric-subtle">
             <strong>Computed Value:</strong> {fmtCurrency(computedValue, holding.basis_currency || "AUD")}
-            {holding.last_updated_at ? ` · Updated ${new Date(holding.last_updated_at).toLocaleString()}` : null}
+            {holding.last_updated_at ? ` ? Updated ${new Date(holding.last_updated_at).toLocaleString()}` : null}
           </div>
         </div>
       );
@@ -1104,7 +1123,7 @@
           <header className="app-header">
             <div>
               <h1>Wealth Dashboard Preview</h1>
-              <p>Track holdings, liabilities, and income effortlessly. Update any input field — charts, KPIs, and previews refresh instantly.</p>
+              <p>Track holdings, liabilities, and income effortlessly. Update any input field ? charts, KPIs, and previews refresh instantly.</p>
             </div>
             <div className="app-actions">
               <button onClick={() => toggleDemo()}>{demoMode ? "Clear Demo Data" : "Load Demo Data"}</button>
@@ -1160,7 +1179,7 @@
             <div className="column">
               <Section title="Key Metrics" description="Live KPIs reflecting your current inputs.">
                 <div className="metrics-grid">
-                  <KPI label="Net Worth" value={fmtCurrency(netWorth, prefs.currency_primary)} sub={`Assets ${fmtCurrency(assetsTotal, prefs.currency_primary)} · Liabilities ${fmtCurrency(liabilitiesTotal, prefs.currency_primary)}`} />
+                  <KPI label="Net Worth" value={fmtCurrency(netWorth, prefs.currency_primary)} sub={`Assets ${fmtCurrency(assetsTotal, prefs.currency_primary)} ? Liabilities ${fmtCurrency(liabilitiesTotal, prefs.currency_primary)}`} />
                   <KPI label="Passive Income" value={fmtCurrency(passiveIncomePa, prefs.currency_primary)} sub="Annualised" />
                   <KPI label="Freedom Progress" value={fmtPct(freedom, 1)} sub={`Target ${fmtCurrency(prefs.target_passive_income_pa || 0, prefs.currency_primary)}`} />
                   <KPI label="Fee Drag" value={fmtCurrency(feeDrag, prefs.currency_primary)} sub="Annual cost of fees" />
@@ -1220,7 +1239,7 @@
             </div>
           </main>
 
-          <footer>Built for rapid wealth previews · {new Date().getFullYear()}</footer>
+          <footer>Built for rapid wealth previews ? {new Date().getFullYear()}</footer>
         </div>
       );
     };
