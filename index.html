@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wealth Dashboard Preview</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.25.7/babel.min.js"></script>
+  <script src="https://unpkg.com/zustand/umd/zustand.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.13.2/umd/Recharts.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6fb;
+      --bg-alt: #ffffff;
+      --bg-muted: #eef1f8;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #d4dbe8;
+      --accent: #2563eb;
+      --accent-soft: rgba(37, 99, 235, 0.12);
+      --success: #16a34a;
+      --danger: #dc2626;
+      --shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #0b1120;
+        --bg-alt: #101a2e;
+        --bg-muted: #131f35;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --border: #1e293b;
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.12);
+        --success: #22c55e;
+        --danger: #f87171;
+        --shadow: 0 18px 60px rgba(15, 23, 42, 0.5);
+      }
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    a, button, input, select, textarea {
+      font: inherit;
+      color: inherit;
+    }
+    #root {
+      min-height: 100vh;
+    }
+    .app {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 36px clamp(18px, 4vw, 40px) 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .app-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .app-header h1 {
+      margin: 0;
+      font-size: clamp(24px, 2.8vw, 36px);
+      letter-spacing: -0.01em;
+    }
+    .app-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      max-width: 640px;
+      line-height: 1.5;
+    }
+    .app-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 9px 18px;
+      background: var(--bg-alt);
+      color: inherit;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+      border-color: var(--accent);
+    }
+    button:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+    }
+    button.ghost {
+      background: transparent;
+    }
+    main.layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 20px;
+    }
+    @media (min-width: 1100px) {
+      main.layout {
+        grid-template-columns: 460px minmax(0, 1fr);
+      }
+    }
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .section {
+      background: var(--bg-alt);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: clamp(18px, 2.2vw, 26px);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: 19px;
+    }
+    .section-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .section-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .field-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .field-grid.two {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .field-grid.three {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--bg-muted);
+      padding: 10px 14px;
+      font-size: 14px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      resize: vertical;
+      min-height: 40px;
+    }
+    .field textarea {
+      min-height: 72px;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: #fff;
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+    .input-with-affix {
+      display: flex;
+      align-items: stretch;
+      background: var(--bg-muted);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    .input-with-affix span.affix {
+      padding: 10px 12px;
+      display: inline-flex;
+      align-items: center;
+      color: var(--muted);
+      font-weight: 600;
+      background: rgba(148, 163, 184, 0.12);
+    }
+    .input-with-affix input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 10px 12px;
+      min-height: 40px;
+    }
+    .input-with-affix:focus-within {
+      border-color: var(--accent);
+      background: #fff;
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .item-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-muted);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .item-card header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .item-card header h3 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.01em;
+    }
+    .badge {
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.12);
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .metrics-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .metric-tile {
+      border-radius: var(--radius-md);
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .metric-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric-value {
+      font-size: clamp(18px, 2.2vw, 24px);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .metric-subtle {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .chart-box {
+      width: 100%;
+      height: 360px;
+    }
+    @media (min-width: 1200px) {
+      .chart-box {
+        height: 420px;
+      }
+    }
+    .empty-state {
+      padding: 28px;
+      border-radius: var(--radius-md);
+      background: var(--bg-muted);
+      border: 1px dashed var(--border);
+      text-align: center;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .snapshot-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+    }
+    .snapshot-table thead {
+      background: rgba(37, 99, 235, 0.08);
+      color: var(--accent);
+    }
+    .snapshot-table th,
+    .snapshot-table td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .snapshot-table tbody tr:hover {
+      background: rgba(37, 99, 235, 0.08);
+    }
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useMemo, useEffect, useCallback, useRef } = React;
+    const { create } = zustand;
+    const {
+      Area, AreaChart, CartesianGrid, Legend, Pie, PieChart,
+      ResponsiveContainer, Tooltip, XAxis, YAxis, Cell
+    } = Recharts;
+
+    /*********************************
+     * Utility Helpers
+     *********************************/
+    const fmtCurrency = (n, ccy = "AUD") => {
+      if (n === null || n === undefined || Number.isNaN(n)) return "-";
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: ccy,
+          maximumFractionDigits: 0
+        }).format(n);
+      } catch (err) {
+        return `${ccy} ${Math.round(n).toLocaleString()}`;
+      }
+    };
+
+    const fmtCurrencyCompact = (n, ccy = "AUD") => {
+      if (n === null || n === undefined || Number.isNaN(n)) return "-";
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: ccy,
+          notation: "compact",
+          maximumFractionDigits: 1
+        }).format(n);
+      } catch (err) {
+        return fmtCurrency(n, ccy);
+      }
+    };
+
+    const fmtNumber = (n, dp = 0) => {
+      if (n === null || n === undefined || Number.isNaN(n)) return "-";
+      return Number(n).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+    };
+
+    const fmtPct = (n, dp = 1) => {
+      if (n === null || n === undefined || Number.isNaN(n)) return "-";
+      return `${Number(n).toFixed(dp)}%`;
+    };
+
+    const uid = () => Math.random().toString(36).slice(2, 10);
+    const todayISO = () => new Date().toISOString();
+
+    const parseNumberLoose = (text) => {
+      if (text === undefined || text === null) return null;
+      const trimmed = String(text).trim();
+      if (!trimmed) return null;
+      const normalized = trimmed.replace(/,/g, "");
+      const num = Number(normalized);
+      return Number.isFinite(num) ? num : undefined;
+    };
+
+    const chartColors = [
+      "#2563eb", "#16a34a", "#f59e0b", "#ef4444",
+      "#7c3aed", "#0ea5e9", "#14b8a6", "#f97316"
+    ];
+
+    /*********************************
+     * Demo Data
+     *********************************/
+    const demoHoldings = [
+      { id: uid(), type: "property", name: "Villa Aura", account: "Bali", value: 850000, basis_currency: "AUD", fees_annual_pct: 0.2, expected_return_pct_pa: 6, risk_band: "growth", valuation_method: "manual", last_updated_at: todayISO(), tags: ["Bali", "property"] },
+      { id: uid(), type: "etf", name: "IVV", account: "MyNorth Super", quantity: 500, price: 160, basis_currency: "AUD", fees_annual_pct: 0.04, expected_return_pct_pa: 7, risk_band: "growth", valuation_method: "market_price", last_updated_at: todayISO(), tags: ["S&P500", "ETF"] },
+      { id: uid(), type: "etf", name: "NDQ", account: "MyNorth Super", quantity: 400, price: 40, basis_currency: "AUD", fees_annual_pct: 0.48, expected_return_pct_pa: 8.5, risk_band: "growth", valuation_method: "market_price", last_updated_at: todayISO(), tags: ["NASDAQ", "ETF"] },
+      { id: uid(), type: "crypto", name: "EBTC", account: "Pearler Super", quantity: 25, price: 1500, basis_currency: "AUD", fees_annual_pct: 1.25, expected_return_pct_pa: 18, risk_band: "high", valuation_method: "market_price", last_updated_at: todayISO(), tags: ["Bitcoin"] },
+      { id: uid(), type: "cash", name: "HSBC AU", account: "HSBC AU", value: 42000, basis_currency: "AUD", fees_annual_pct: 0, expected_return_pct_pa: 4.5, risk_band: "defensive", valuation_method: "manual", last_updated_at: todayISO() }
+    ];
+
+    const demoLiabilities = [
+      { id: uid(), name: "North Beach Mortgage", lender: "HSBC", type: "mortgage", principal: 620000, rate_pct: 6.45, repayment_freq: "monthly", repayment_amount: 3600, offset_balance: 25000, fixed_or_variable: "variable", expiry_date: "2027-06-30", lvr_current: 0.62, property_ref: null, notes: "Refi watch if >0.75% above benchmark" }
+    ];
+
+    const demoIncome = [
+      { id: uid(), source_type: "rent", gross_amount_freq: 850, freq: "weekly", reliability_score: 0.9 },
+      { id: uid(), source_type: "dividend", gross_amount_freq: 400, freq: "quarterly", reliability_score: 0.7, linked_holding_id: null }
+    ];
+
+    const defaultPrefs = {
+      currency_primary: "AUD",
+      inflation_assumption: 2.5,
+      return_assumptions: { property: 6, etf: 7, stock: 7, crypto: 15, cash: 4, bond: 4, reit: 6, business: 10, other: 5 },
+      risk_tolerance: "growth",
+      target_passive_income_pa: 250000,
+      target_freedom_date: undefined,
+      age: 38
+    };
+
+    /*********************************
+     * Calculations
+     *********************************/
+    const valueOfHolding = (holding) => {
+      if (holding.quantity != null && holding.price != null) {
+        return holding.quantity * holding.price;
+      }
+      if (holding.value != null) {
+        return holding.value;
+      }
+      return 0;
+    };
+
+    const annualizeIncome = (incomeStreams) => incomeStreams.reduce((sum, stream) => {
+      const amount = stream.gross_amount_freq || 0;
+      switch (stream.freq) {
+        case "weekly":
+          return sum + amount * 52;
+        case "fortnightly":
+          return sum + amount * 26;
+        case "monthly":
+          return sum + amount * 12;
+        case "quarterly":
+          return sum + amount * 4;
+        case "annual":
+        default:
+          return sum + amount;
+      }
+    }, 0);
+
+    const freedomPercent = (incomePa, targetPa) => {
+      if (!targetPa || targetPa <= 0) return 0;
+      return (100 * incomePa) / targetPa;
+    };
+
+    const allocationMap = (holdings) => {
+      const total = holdings.reduce((sum, holding) => sum + valueOfHolding(holding), 0) || 1;
+      const map = {};
+      holdings.forEach((holding) => {
+        const type = holding.type || "other";
+        map[type] = (map[type] || 0) + valueOfHolding(holding);
+      });
+      Object.keys(map).forEach((key) => {
+        map[key] = Number(((map[key] / total) * 100).toFixed(1));
+      });
+      return map;
+    };
+
+    const feeDragPa = (holdings) => holdings.reduce((sum, holding) => {
+      const feesPct = holding.fees_annual_pct || 0;
+      return sum + valueOfHolding(holding) * (feesPct / 100);
+    }, 0);
+
+    /*********************************
+     * Local Storage Helpers
+     *********************************/
+    const storageKey = "we1_dashboard_state";
+
+    const safeParse = (value) => {
+      if (!value) return null;
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.error("Failed to parse dashboard state", err);
+        return null;
+      }
+    };
+
+    /*********************************
+     * Store (Zustand)
+     *********************************/
+    const useDashboardStore = create((set, get) => ({
+      holdings: [],
+      liabilities: [],
+      income: [],
+      prefs: defaultPrefs,
+      snapshots: [],
+      demoMode: false,
+      resetTick: 0,
+
+      loadFromLocal: () => {
+        if (typeof window === "undefined" || !window.localStorage) return;
+        const raw = window.localStorage.getItem(storageKey);
+        const parsed = safeParse(raw);
+        if (!parsed) return;
+        set({
+          holdings: parsed.holdings || [],
+          liabilities: parsed.liabilities || [],
+          income: parsed.income || [],
+          prefs: parsed.prefs || defaultPrefs,
+          snapshots: parsed.snapshots || [],
+          demoMode: Boolean(parsed.demoMode)
+        });
+      },
+
+      saveToLocal: () => {
+        if (typeof window === "undefined" || !window.localStorage) return;
+        const { holdings, liabilities, income, prefs, snapshots, demoMode } = get();
+        const payload = JSON.stringify({ holdings, liabilities, income, prefs, snapshots, demoMode });
+        window.localStorage.setItem(storageKey, payload);
+      },
+
+      wipeData: () => {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem(storageKey);
+        }
+        set({
+          holdings: [],
+          liabilities: [],
+          income: [],
+          snapshots: [],
+          demoMode: false,
+          resetTick: get().resetTick + 1
+        });
+      },
+
+      toggleDemo: () => {
+        const demoOn = !get().demoMode;
+        if (demoOn) {
+          set({
+            demoMode: true,
+            holdings: demoHoldings.map((holding) => ({ ...holding })),
+            liabilities: demoLiabilities.map((item) => ({ ...item })),
+            income: demoIncome.map((item) => ({ ...item }))
+          });
+        } else {
+          set({
+            demoMode: false,
+            holdings: [],
+            liabilities: [],
+            income: [],
+            resetTick: get().resetTick + 1
+          });
+        }
+      },
+
+      addHolding: (holding) => set((state) => ({
+        holdings: [
+          ...state.holdings,
+          {
+            ...holding,
+            id: uid(),
+            last_updated_at: todayISO()
+          }
+        ]
+      })),
+
+      updateHolding: (id, patch) => set((state) => ({
+        holdings: state.holdings.map((holding) =>
+          holding.id === id
+            ? {
+                ...holding,
+                ...patch,
+                last_updated_at: todayISO()
+              }
+            : holding
+        )
+      })),
+
+      removeHolding: (id) => set((state) => ({
+        holdings: state.holdings.filter((holding) => holding.id !== id)
+      })),
+
+      addLiability: (liability) => set((state) => ({
+        liabilities: [
+          ...state.liabilities,
+          {
+            ...liability,
+            id: uid()
+          }
+        ]
+      })),
+
+      updateLiability: (id, patch) => set((state) => ({
+        liabilities: state.liabilities.map((liability) =>
+          liability.id === id ? { ...liability, ...patch } : liability
+        )
+      })),
+
+      removeLiability: (id) => set((state) => ({
+        liabilities: state.liabilities.filter((liability) => liability.id !== id)
+      })),
+
+      addIncome: (income) => set((state) => ({
+        income: [
+          ...state.income,
+          {
+            ...income,
+            id: uid()
+          }
+        ]
+      })),
+
+      updateIncome: (id, patch) => set((state) => ({
+        income: state.income.map((stream) =>
+          stream.id === id ? { ...stream, ...patch } : stream
+        )
+      })),
+
+      removeIncome: (id) => set((state) => ({
+        income: state.income.filter((stream) => stream.id !== id)
+      })),
+
+      updatePrefs: (patch) => set((state) => ({
+        prefs: { ...state.prefs, ...patch }
+      })),
+
+      snapshotNow: () => {
+        const { holdings, liabilities, income } = get();
+        const assetsTotal = holdings.reduce((sum, holding) => sum + (valueOfHolding(holding) || 0), 0);
+        const liabilitiesTotal = liabilities.reduce((sum, liability) => {
+          const principal = liability.principal || 0;
+          const offset = liability.offset_balance || 0;
+          return sum + (principal - offset);
+        }, 0);
+        const net = assetsTotal - liabilitiesTotal;
+        const passive = annualizeIncome(income);
+        const allocation = allocationMap(holdings);
+        const snapshot = {
+          id: uid(),
+          date: new Date().toISOString(),
+          net_worth: net,
+          assets_total: assetsTotal,
+          liabilities_total: liabilitiesTotal,
+          passive_income_pa: passive,
+          allocation_map: allocation
+        };
+        set((state) => ({ snapshots: [...state.snapshots, snapshot] }));
+      }
+    }));
+
+    /*********************************
+     * Hooks & Input Components
+     *********************************/
+    const useBufferedInput = (value, { format, parse, onCommit }) => {
+      const formatFn = format || ((v) => (v === null || v === undefined ? "" : String(v)));
+      const parseFn = parse || ((text) => text);
+      const onCommitRef = useRef(onCommit);
+      useEffect(() => {
+        onCommitRef.current = onCommit;
+      }, [onCommit]);
+
+      const [text, setText] = useState(() => formatFn(value));
+      const valueRef = useRef(value);
+      const formatRef = useRef(formatFn);
+      useEffect(() => {
+        formatRef.current = formatFn;
+      }, [formatFn]);
+
+      useEffect(() => {
+        valueRef.current = value;
+        const formatted = formatFn(value);
+        if (formatted !== text) {
+          setText(formatted);
+        }
+      }, [value, formatFn]);
+
+      const commit = useCallback(() => {
+        const parsed = parseFn(text);
+        if (parsed === undefined) {
+          setText(formatRef.current(valueRef.current));
+          return;
+        }
+        onCommitRef.current(parsed);
+      }, [text, parseFn]);
+
+      const handleKeyDown = useCallback((event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+          event.currentTarget.blur();
+        } else if (event.key === "Escape") {
+          setText(formatRef.current(valueRef.current));
+          event.currentTarget.blur();
+        }
+      }, [commit]);
+
+      const reset = useCallback(() => {
+        setText(formatRef.current(valueRef.current));
+      }, []);
+
+      return { text, setText, commit, handleKeyDown, reset };
+    };
+
+    const TextInput = ({ id, label, value, onChange, placeholder }) => {
+      const format = useCallback((v) => (v === null || v === undefined ? "" : String(v)), []);
+      const parse = useCallback((text) => text.trim(), []);
+      const { text, setText, commit, handleKeyDown } = useBufferedInput(value, { format, parse, onCommit: (next) => onChange(next || "") });
+      return (
+        <div className="field">
+          <label htmlFor={id}>{label}</label>
+          <input
+            id={id}
+            type="text"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+          />
+        </div>
+      );
+    };
+
+    const NumberInput = ({ id, label, value, onChange, placeholder, min, max, prefix, suffix }) => {
+      const format = useCallback((v) => (v === null || v === undefined ? "" : String(v)), []);
+      const parse = useCallback((text) => parseNumberLoose(text), []);
+      const handleCommit = useCallback((next) => {
+        if (next === undefined) return;
+        if (next === null) {
+          onChange(null);
+          return;
+        }
+        let result = next;
+        if (typeof min === "number") result = Math.max(min, result);
+        if (typeof max === "number") result = Math.min(max, result);
+        onChange(result);
+      }, [min, max, onChange]);
+      const { text, setText, commit, handleKeyDown } = useBufferedInput(value, { format, parse, onCommit: handleCommit });
+      return (
+        <div className="field">
+          <label htmlFor={id}>{label}</label>
+          <div className="input-with-affix">
+            {prefix ? <span className="affix">{prefix}</span> : null}
+            <input
+              id={id}
+              inputMode="decimal"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              onBlur={commit}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+            />
+            {suffix ? <span className="affix">{suffix}</span> : null}
+          </div>
+        </div>
+      );
+    };
+
+    const SelectInput = ({ id, label, value, onChange, options, placeholder = "Select" }) => (
+      <div className="field">
+        <label htmlFor={id}>{label}</label>
+        <select
+          id={id}
+          value={value ?? ""}
+          onChange={(event) => onChange(event.target.value || null)}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+
+    const TextArea = ({ id, label, value, onChange, placeholder }) => {
+      const format = useCallback((v) => (v === null || v === undefined ? "" : String(v)), []);
+      const parse = useCallback((text) => text.trim(), []);
+      const { text, setText, commit, handleKeyDown } = useBufferedInput(value, { format, parse, onCommit: (next) => onChange(next || "") });
+      return (
+        <div className="field">
+          <label htmlFor={id}>{label}</label>
+          <textarea
+            id={id}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+          />
+        </div>
+      );
+    };
+
+    /*********************************
+     * UI Components
+     *********************************/
+    const Section = ({ title, description, actions, children }) => (
+      <section className="section">
+        <div className="section-head">
+          <div>
+            <h2>{title}</h2>
+            {description ? <p>{description}</p> : null}
+          </div>
+          {actions ? <div className="section-actions">{actions}</div> : null}
+        </div>
+        {children}
+      </section>
+    );
+
+    const KPI = ({ label, value, sub }) => (
+      <div className="metric-tile">
+        <span className="metric-label">{label}</span>
+        <span className="metric-value">{value}</span>
+        {sub ? <span className="metric-subtle">{sub}</span> : null}
+      </div>
+    );
+
+    const HoldingCard = ({ holding }) => {
+      const updateHolding = useDashboardStore((state) => state.updateHolding);
+      const removeHolding = useDashboardStore((state) => state.removeHolding);
+      const handlePatch = useCallback((patch) => updateHolding(holding.id, patch), [updateHolding, holding.id]);
+      const computedValue = valueOfHolding(holding);
+      return (
+        <div className="item-card" aria-live="polite">
+          <header>
+            <h3>{holding.name || "New Holding"}</h3>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <span className="badge">{holding.type || "Uncategorised"}</span>
+              <button className="ghost" onClick={() => removeHolding(holding.id)} aria-label="Remove holding">
+                Remove
+              </button>
+            </div>
+          </header>
+          <div className="field-grid two">
+            <TextInput id={`holding-${holding.id}-name`} label="Name" value={holding.name} onChange={(value) => handlePatch({ name: value })} placeholder="Holding name" />
+            <SelectInput
+              id={`holding-${holding.id}-type`}
+              label="Type"
+              value={holding.type}
+              onChange={(value) => handlePatch({ type: value || "other" })}
+              options={[
+                { value: "property", label: "Property" },
+                { value: "etf", label: "ETF" },
+                { value: "stock", label: "Stock" },
+                { value: "crypto", label: "Crypto" },
+                { value: "cash", label: "Cash" },
+                { value: "bond", label: "Bond" },
+                { value: "reit", label: "REIT" },
+                { value: "business", label: "Business" },
+                { value: "other", label: "Other" }
+              ]}
+            />
+          </div>
+          <div className="field-grid two">
+            <TextInput id={`holding-${holding.id}-account`} label="Account / Platform" value={holding.account} onChange={(value) => handlePatch({ account: value })} placeholder="e.g. Brokerage" />
+            <TextInput id={`holding-${holding.id}-currency`} label="Base Currency" value={holding.basis_currency || ""} onChange={(value) => handlePatch({ basis_currency: value || null })} placeholder="e.g. AUD" />
+          </div>
+          <div className="field-grid three">
+            <NumberInput id={`holding-${holding.id}-quantity`} label="Quantity" value={holding.quantity} onChange={(value) => handlePatch({ quantity: value })} placeholder="0" />
+            <NumberInput id={`holding-${holding.id}-price`} label="Price" value={holding.price} onChange={(value) => handlePatch({ price: value })} placeholder="0" prefix={holding.basis_currency || ""} />
+            <NumberInput id={`holding-${holding.id}-value`} label="Manual Value" value={holding.value} onChange={(value) => handlePatch({ value })} placeholder="Override" prefix={holding.basis_currency || ""} />
+          </div>
+          <div className="field-grid three">
+            <NumberInput id={`holding-${holding.id}-fees`} label="Fees (% p.a.)" value={holding.fees_annual_pct} onChange={(value) => handlePatch({ fees_annual_pct: value })} placeholder="0" suffix="%" min={0} />
+            <NumberInput id={`holding-${holding.id}-return`} label="Expected Return (% p.a.)" value={holding.expected_return_pct_pa} onChange={(value) => handlePatch({ expected_return_pct_pa: value })} placeholder="0" suffix="%" />
+            <TextInput id={`holding-${holding.id}-valuation`} label="Valuation Method" value={holding.valuation_method || ""} onChange={(value) => handlePatch({ valuation_method: value || null })} placeholder="manual / market" />
+          </div>
+          <TextArea id={`holding-${holding.id}-notes`} label="Notes" value={holding.notes || ""} onChange={(value) => handlePatch({ notes: value || null })} placeholder="Anything notable about this holding" />
+          <div className="metric-subtle">
+            <strong>Computed Value:</strong> {fmtCurrency(computedValue, holding.basis_currency || "AUD")}
+            {holding.last_updated_at ? ` · Updated ${new Date(holding.last_updated_at).toLocaleString()}` : null}
+          </div>
+        </div>
+      );
+    };
+
+    const LiabilityCard = ({ liability }) => {
+      const updateLiability = useDashboardStore((state) => state.updateLiability);
+      const removeLiability = useDashboardStore((state) => state.removeLiability);
+      const handlePatch = useCallback((patch) => updateLiability(liability.id, patch), [updateLiability, liability.id]);
+      return (
+        <div className="item-card">
+          <header>
+            <h3>{liability.name || "Liability"}</h3>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <span className="badge">{liability.type || "loan"}</span>
+              <button className="ghost" onClick={() => removeLiability(liability.id)} aria-label="Remove liability">
+                Remove
+              </button>
+            </div>
+          </header>
+          <div className="field-grid two">
+            <TextInput id={`liability-${liability.id}-name`} label="Name" value={liability.name} onChange={(value) => handlePatch({ name: value })} placeholder="Loan name" />
+            <TextInput id={`liability-${liability.id}-lender`} label="Lender" value={liability.lender} onChange={(value) => handlePatch({ lender: value })} placeholder="Bank" />
+          </div>
+          <div className="field-grid three">
+            <NumberInput id={`liability-${liability.id}-principal`} label="Principal" value={liability.principal} onChange={(value) => handlePatch({ principal: value })} placeholder="0" prefix="$" />
+            <NumberInput id={`liability-${liability.id}-rate`} label="Rate (% p.a.)" value={liability.rate_pct} onChange={(value) => handlePatch({ rate_pct: value })} placeholder="0" suffix="%" min={0} />
+            <NumberInput id={`liability-${liability.id}-offset`} label="Offset Balance" value={liability.offset_balance} onChange={(value) => handlePatch({ offset_balance: value })} placeholder="0" prefix="$" />
+          </div>
+          <div className="field-grid two">
+            <SelectInput
+              id={`liability-${liability.id}-type`}
+              label="Type"
+              value={liability.type}
+              onChange={(value) => handlePatch({ type: value || "mortgage" })}
+              options={[
+                { value: "mortgage", label: "Mortgage" },
+                { value: "personal", label: "Personal" },
+                { value: "margin", label: "Margin" },
+                { value: "cc", label: "Credit Card" }
+              ]}
+            />
+            <NumberInput id={`liability-${liability.id}-repay`} label="Repayment Amount" value={liability.repayment_amount} onChange={(value) => handlePatch({ repayment_amount: value })} placeholder="0" prefix="$" />
+          </div>
+          <TextArea id={`liability-${liability.id}-notes`} label="Notes" value={liability.notes || ""} onChange={(value) => handlePatch({ notes: value || null })} placeholder="Details, expiry, etc." />
+        </div>
+      );
+    };
+
+    const IncomeCard = ({ stream }) => {
+      const updateIncome = useDashboardStore((state) => state.updateIncome);
+      const removeIncome = useDashboardStore((state) => state.removeIncome);
+      const handlePatch = useCallback((patch) => updateIncome(stream.id, patch), [updateIncome, stream.id]);
+      return (
+        <div className="item-card">
+          <header>
+            <h3>{stream.source_type || "Income"}</h3>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <span className="badge">{stream.freq || "annual"}</span>
+              <button className="ghost" onClick={() => removeIncome(stream.id)} aria-label="Remove income stream">
+                Remove
+              </button>
+            </div>
+          </header>
+          <div className="field-grid two">
+            <SelectInput
+              id={`income-${stream.id}-source`}
+              label="Source"
+              value={stream.source_type}
+              onChange={(value) => handlePatch({ source_type: value || "other" })}
+              options={[
+                { value: "rent", label: "Rent" },
+                { value: "dividend", label: "Dividend" },
+                { value: "interest", label: "Interest" },
+                { value: "staking", label: "Staking" },
+                { value: "business", label: "Business" },
+                { value: "other", label: "Other" }
+              ]}
+            />
+            <SelectInput
+              id={`income-${stream.id}-freq`}
+              label="Frequency"
+              value={stream.freq}
+              onChange={(value) => handlePatch({ freq: value || "annual" })}
+              options={[
+                { value: "weekly", label: "Weekly" },
+                { value: "fortnightly", label: "Fortnightly" },
+                { value: "monthly", label: "Monthly" },
+                { value: "quarterly", label: "Quarterly" },
+                { value: "annual", label: "Annual" }
+              ]}
+            />
+          </div>
+          <div className="field-grid two">
+            <NumberInput id={`income-${stream.id}-gross`} label="Gross Amount" value={stream.gross_amount_freq} onChange={(value) => handlePatch({ gross_amount_freq: value })} placeholder="0" prefix="$" />
+            <NumberInput id={`income-${stream.id}-reliability`} label="Reliability Score" value={stream.reliability_score} onChange={(value) => handlePatch({ reliability_score: value })} placeholder="0-1" min={0} max={1} />
+          </div>
+          <TextArea id={`income-${stream.id}-notes`} label="Notes" value={stream.notes || ""} onChange={(value) => handlePatch({ notes: value || null })} placeholder="Context for this income stream" />
+        </div>
+      );
+    };
+
+    const SnapshotsTable = ({ snapshots, currency }) => {
+      if (!snapshots.length) {
+        return <div className="empty-state">Create a snapshot to capture the portfolio state over time.</div>;
+      }
+      return (
+        <div style={{ overflowX: "auto" }}>
+          <table className="snapshot-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Net Worth</th>
+                <th>Assets</th>
+                <th>Liabilities</th>
+                <th>Passive Income (p.a.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {snapshots.map((snapshot) => (
+                <tr key={snapshot.id}>
+                  <td>{new Date(snapshot.date).toLocaleString()}</td>
+                  <td>{fmtCurrency(snapshot.net_worth, currency)}</td>
+                  <td>{fmtCurrency(snapshot.assets_total, currency)}</td>
+                  <td>{fmtCurrency(snapshot.liabilities_total, currency)}</td>
+                  <td>{fmtCurrency(snapshot.passive_income_pa, currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    };
+
+    /*********************************
+     * Main App Component
+     *********************************/
+    const App = () => {
+      const loadFromLocal = useDashboardStore((state) => state.loadFromLocal);
+      const saveToLocal = useDashboardStore((state) => state.saveToLocal);
+      const toggleDemo = useDashboardStore((state) => state.toggleDemo);
+      const wipeData = useDashboardStore((state) => state.wipeData);
+      const snapshotNow = useDashboardStore((state) => state.snapshotNow);
+      const addHolding = useDashboardStore((state) => state.addHolding);
+      const addLiability = useDashboardStore((state) => state.addLiability);
+      const addIncome = useDashboardStore((state) => state.addIncome);
+      const updatePrefs = useDashboardStore((state) => state.updatePrefs);
+
+      const holdings = useDashboardStore((state) => state.holdings);
+      const liabilities = useDashboardStore((state) => state.liabilities);
+      const income = useDashboardStore((state) => state.income);
+      const prefs = useDashboardStore((state) => state.prefs);
+      const snapshots = useDashboardStore((state) => state.snapshots);
+      const demoMode = useDashboardStore((state) => state.demoMode);
+
+      useEffect(() => {
+        loadFromLocal();
+      }, [loadFromLocal]);
+
+      useEffect(() => {
+        saveToLocal();
+      }, [holdings, liabilities, income, prefs, snapshots, saveToLocal]);
+
+      const assetsTotal = useMemo(() => holdings.reduce((sum, holding) => sum + valueOfHolding(holding), 0), [holdings]);
+      const liabilitiesTotal = useMemo(() => liabilities.reduce((sum, liability) => sum + ((liability.principal || 0) - (liability.offset_balance || 0)), 0), [liabilities]);
+      const netWorth = useMemo(() => assetsTotal - liabilitiesTotal, [assetsTotal, liabilitiesTotal]);
+      const passiveIncomePa = useMemo(() => annualizeIncome(income), [income]);
+      const allocation = useMemo(() => allocationMap(holdings), [holdings]);
+      const feeDrag = useMemo(() => feeDragPa(holdings), [holdings]);
+      const freedom = useMemo(() => freedomPercent(passiveIncomePa, prefs.target_passive_income_pa || 0), [passiveIncomePa, prefs.target_passive_income_pa]);
+
+      const allocationData = useMemo(() =>
+        Object.entries(allocation).map(([name, value], index) => ({
+          name,
+          value,
+          color: chartColors[index % chartColors.length]
+        })), [allocation]);
+
+      const chartData = useMemo(() => {
+        if (snapshots.length) {
+          return snapshots.map((snapshot) => ({
+            name: new Date(snapshot.date).toLocaleDateString(),
+            netWorth: snapshot.net_worth,
+            assets: snapshot.assets_total,
+            liabilities: snapshot.liabilities_total
+          }));
+        }
+        return [{
+          name: new Date().toLocaleDateString(),
+          netWorth,
+          assets: assetsTotal,
+          liabilities: liabilitiesTotal
+        }];
+      }, [snapshots, netWorth, assetsTotal, liabilitiesTotal]);
+
+      return (
+        <div className="app">
+          <header className="app-header">
+            <div>
+              <h1>Wealth Dashboard Preview</h1>
+              <p>Track holdings, liabilities, and income effortlessly. Update any input field — charts, KPIs, and previews refresh instantly.</p>
+            </div>
+            <div className="app-actions">
+              <button onClick={() => toggleDemo()}>{demoMode ? "Clear Demo Data" : "Load Demo Data"}</button>
+              <button onClick={() => snapshotNow()}>Snapshot Now</button>
+              <button className="ghost" onClick={() => wipeData()}>Reset Workspace</button>
+            </div>
+          </header>
+
+          <main className="layout">
+            <div className="column">
+              <Section
+                title="Holdings"
+                description="Assets and investments. Edit quantity, price, or manual values to update allocation instantly."
+                actions={<button onClick={() => addHolding({ name: "New Holding", type: "other", basis_currency: prefs.currency_primary })}>Add Holding</button>}
+              >
+                <div className="card-list">
+                  {holdings.length ? holdings.map((holding) => <HoldingCard key={holding.id} holding={holding} />) : <div className="empty-state">No holdings yet. Add your first asset to begin.</div>}
+                </div>
+              </Section>
+
+              <Section
+                title="Liabilities"
+                description="Capture debts, mortgages, and other obligations."
+                actions={<button onClick={() => addLiability({ name: "New Liability", type: "mortgage", principal: 0, rate_pct: 0 })}>Add Liability</button>}
+              >
+                <div className="card-list">
+                  {liabilities.length ? liabilities.map((liability) => <LiabilityCard key={liability.id} liability={liability} />) : <div className="empty-state">No liabilities captured yet.</div>}
+                </div>
+              </Section>
+
+              <Section
+                title="Income Streams"
+                description="Passive and active income sources feeding the plan."
+                actions={<button onClick={() => addIncome({ source_type: "other", freq: "annual", gross_amount_freq: 0 })}>Add Income</button>}
+              >
+                <div className="card-list">
+                  {income.length ? income.map((stream) => <IncomeCard key={stream.id} stream={stream} />) : <div className="empty-state">No income streams yet.</div>}
+                </div>
+              </Section>
+
+              <Section title="Preferences" description="Global assumptions that flow into projections.">
+                <div className="field-grid two">
+                  <TextInput id="prefs-currency" label="Primary Currency" value={prefs.currency_primary} onChange={(value) => updatePrefs({ currency_primary: value })} placeholder="AUD" />
+                  <NumberInput id="prefs-infl" label="Inflation Assumption (% p.a.)" value={prefs.inflation_assumption} onChange={(value) => updatePrefs({ inflation_assumption: value ?? 0 })} suffix="%" />
+                </div>
+                <div className="field-grid two">
+                  <NumberInput id="prefs-target" label="Target Passive Income (p.a.)" value={prefs.target_passive_income_pa} onChange={(value) => updatePrefs({ target_passive_income_pa: value ?? 0 })} prefix={prefs.currency_primary || ""} />
+                  <TextInput id="prefs-risk" label="Risk Tolerance" value={prefs.risk_tolerance || ""} onChange={(value) => updatePrefs({ risk_tolerance: value || null })} placeholder="defensive / balanced / growth / high" />
+                </div>
+              </Section>
+            </div>
+
+            <div className="column">
+              <Section title="Key Metrics" description="Live KPIs reflecting your current inputs.">
+                <div className="metrics-grid">
+                  <KPI label="Net Worth" value={fmtCurrency(netWorth, prefs.currency_primary)} sub={`Assets ${fmtCurrency(assetsTotal, prefs.currency_primary)} · Liabilities ${fmtCurrency(liabilitiesTotal, prefs.currency_primary)}`} />
+                  <KPI label="Passive Income" value={fmtCurrency(passiveIncomePa, prefs.currency_primary)} sub="Annualised" />
+                  <KPI label="Freedom Progress" value={fmtPct(freedom, 1)} sub={`Target ${fmtCurrency(prefs.target_passive_income_pa || 0, prefs.currency_primary)}`} />
+                  <KPI label="Fee Drag" value={fmtCurrency(feeDrag, prefs.currency_primary)} sub="Annual cost of fees" />
+                </div>
+              </Section>
+
+              <Section title="Allocation" description="Portfolio mix by holding type.">
+                <div className="chart-box">
+                  {allocationData.length ? (
+                    <ResponsiveContainer>
+                      <PieChart>
+                        <Pie dataKey="value" data={allocationData} innerRadius="45%" outerRadius="70%" paddingAngle={2}>
+                          {allocationData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value, name) => [`${value}%`, name]} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="empty-state">Add holdings to see allocation.</div>
+                  )}
+                </div>
+              </Section>
+
+              <Section title="Net Worth History" description="Snapshots captured over time.">
+                <div className="chart-box">
+                  {chartData.length ? (
+                    <ResponsiveContainer>
+                      <AreaChart data={chartData} margin={{ top: 20, bottom: 10, left: 10, right: 10 }}>
+                        <defs>
+                          <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#2563eb" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="4 8" stroke="rgba(148,163,184,0.3)" />
+                        <XAxis dataKey="name" tick={{ fill: "var(--muted)", fontSize: 12 }} />
+                        <YAxis tickFormatter={(value) => fmtNumber(value)} tick={{ fill: "var(--muted)", fontSize: 12 }} width={90} />
+                        <Tooltip formatter={(value) => fmtCurrency(value, prefs.currency_primary)} />
+                        <Legend />
+                        <Area type="monotone" name="Net Worth" dataKey="netWorth" stroke="#2563eb" fill="url(#colorNet)" strokeWidth={3} />
+                        <Area type="monotone" name="Assets" dataKey="assets" stroke="#16a34a" fill="rgba(22,163,74,0.16)" strokeWidth={2} />
+                        <Area type="monotone" name="Liabilities" dataKey="liabilities" stroke="#dc2626" fill="rgba(220,38,38,0.12)" strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="empty-state">Capture at least one snapshot to populate this chart.</div>
+                  )}
+                </div>
+              </Section>
+
+              <Section title="Snapshots" description="Tabular record of captured states.">
+                <SnapshotsTable snapshots={snapshots} currency={prefs.currency_primary} />
+              </Section>
+            </div>
+          </main>
+
+          <footer>Built for rapid wealth previews · {new Date().getFullYear()}</footer>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
